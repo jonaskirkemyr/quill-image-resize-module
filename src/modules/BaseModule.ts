@@ -1,3 +1,4 @@
+import { IDefaultOptions } from '../DefaultOptions';
 import { ImageResize } from '../ImageResize';
 
 export interface IBaseModule {
@@ -6,20 +7,28 @@ export interface IBaseModule {
     onUpdate(): void;
 }
 
+/**
+ * Base Module class to assign and pass option variables to other internal modules of ImageResize
+ *
+ * @export
+ * @abstract
+ * @class BaseModule
+ * @implements {IBaseModule}
+ */
 export abstract class BaseModule implements IBaseModule {
     protected overlay: HTMLElement;
     protected img: HTMLImageElement;
-    protected options;
-    protected requestUpdate;
+    protected options: IDefaultOptions;
+    protected imageResize: ImageResize;
 
-    public constructor(resize: ImageResize) {
-        this.overlay = resize.overlay;
-        this.img = <HTMLImageElement>resize.image;
-        this.options = resize.options;
-        this.requestUpdate = resize.onUpdate;
+    public constructor(imageResize: ImageResize) {
+        this.overlay = imageResize.overlay;
+        this.img = <HTMLImageElement>imageResize.image;
+        this.options = imageResize.options;
+        this.imageResize = imageResize;
     }
 
-    abstract onCreate();
-    abstract onDestroy();
-    abstract onUpdate();
+    abstract onCreate(): void;
+    abstract onDestroy(): void;
+    abstract onUpdate(): void;
 }

@@ -1,91 +1,22 @@
+import { assign, merge } from 'lodash';
 import * as Quill from 'quill';
-import { merge } from 'lodash';
+import { DefaultOptions, IDefaultOptions } from './DefaultOptions';
 import { DisplaySize } from './modules/DisplaySize';
 import { Resize } from './modules/Resize';
+import { Toolbar } from './modules/Toolbar';
 
-const knownModules: {} = { DisplaySize, Resize };
+type KnownModule = DisplaySize | Resize | Toolbar;
+const knownModules: {} = { DisplaySize, Resize, Toolbar };
 
-interface IDefaultOptions {
-    modules?: { [key: string]: any },
-    overlayStyles?: {}, // CSSStyleDeclaration
-    handleStyles?: any | {},
-    displayStyles?: any | {},
-    toolbarStyles?: any | {},
-    toolbarButtonStyles?: any | {},
-    toolbarButtonSvgStyles?: any | {}
-}
-
-const DefaultOptions: IDefaultOptions = {
-    modules: {
-        DisplaySize: DisplaySize,
-        Resize: Resize
-    },
-    overlayStyles: {
-        position: 'absolute',
-        boxSizing: 'border-box',
-        border: '1px dashed #444',
-    },
-    handleStyles: {
-        position: 'absolute',
-        height: '12px',
-        width: '12px',
-        backgroundColor: 'white',
-        border: '1px solid #777',
-        boxSizing: 'border-box',
-        opacity: '0.80',
-    },
-    displayStyles: {
-        position: 'absolute',
-        font: '12px/1.0 Arial, Helvetica, sans-serif',
-        padding: '4px 8px',
-        textAlign: 'center',
-        backgroundColor: 'white',
-        color: '#333',
-        border: '1px solid #777',
-        boxSizing: 'border-box',
-        opacity: '0.80',
-        cursor: 'default',
-    },
-    toolbarStyles: {
-        position: 'absolute',
-        top: '-12px',
-        right: '0',
-        left: '0',
-        height: '0',
-        minWidth: '100px',
-        font: '12px/1.0 Arial, Helvetica, sans-serif',
-        textAlign: 'center',
-        color: '#333',
-        boxSizing: 'border-box',
-        cursor: 'default',
-    },
-    toolbarButtonStyles: {
-        display: 'inline-block',
-        width: '24px',
-        height: '24px',
-        background: 'white',
-        border: '1px solid #999',
-        verticalAlign: 'middle',
-    },
-    toolbarButtonSvgStyles: {
-        fill: '#444',
-        stroke: '#444',
-        strokeWidth: '2',
-    }
-}
-
-export interface IOverlayOptions extends Quill.QuillOptionsStatic, IDefaultOptions {
-
-}
-
+// Quill.d.ts from official repository doesn't contain all elements available from the quill instance. The missing properties are defined here:
 export interface IQuillInstance extends Quill.Quill {
-    root: HTMLElement,
-    container: HTMLElement,
+    root: HTMLElement;
+    container: HTMLElement;
 
-    editor: any, // Editor
-    emitter: any, // Emitter
-    history: any,// History
-    keyboard: Quill.KeyboardStatic,
+    editor: any; // Editor
+    emitter: any; // Emitter
+    history: any; // History
+    keyboard: Quill.KeyboardStatic;
     options: {
         bounds: Quill.BoundsStatic,
         container: HTMLElement,
@@ -94,76 +25,101 @@ export interface IQuillInstance extends Quill.Quill {
         readonly: boolean,
         scrollingContainer: HTMLElement,
         strict: boolean,
-        theme: (quill: IQuillInstance, options: IOverlayOptions) => void
-    },
-    scroll: any, // Scroll
-    scrollingContainer: HTMLElement,
-    selection: any // Selection,
-    theme: any // e.g. SnowTheme
+        theme: (quill: IQuillInstance, options: IDefaultOptions) => void
+    };
+    scroll: any; // Scroll
+    scrollingContainer: HTMLElement;
+    selection: any; // Selection,
+    theme: any; // Current Theme for Quill.Editor SnowTheme
 }
 
-
+interface IImageResizeListeners {
+    onRootClick: (event: MouseEvent) => void;
+    onKeyUp: (event: KeyboardEvent) => void;
+}
+/**
+ * Enables Image Resizing on image elements in a Quill.Editor
+ *
+ * @export
+ * @class ImageResize
+ */
 export class ImageResize {
+    private _options: IDefaultOptions; // Options for current module, see DefaultOptions for a full list of available options
+    private instance: IQuillInstance; // Instance of the quill editor, to setup listeners and retrieving data from the editor (e.g. image)
+    private currentSelectedImage: EventTarget | Element; // The image activated / clicked
 
-    private _options: IOverlayOptions;
-    private instance: IQuillInstance;
-    private currentSelectedImage: EventTarget | Element;
+    private currentOverlay: HTMLElement; // Selection overlay, for highlighting a selected image
 
-    private currentOverlay: HTMLElement;
+    private modules: any[]; // Internal modules enabled
 
-    private currentModules: Object;
-    private modules: any[];
+    private listeners: IImageResizeListeners; // Listeners for click&key events. Used for storing functions, rather than creating duplicates for each call
 
-    constructor(quill: IQuillInstance, options: IOverlayOptions) {
+    constructor(quill: IQuillInstance, options: IDefaultOptions) {
         this.instance = quill;
-        //quill
-        console.log("quill", this.instance);
-        console.log("options", options);
-        console.log("THIS:_OPTIONS", this._options);
-        this._options = merge({}, options, DefaultOptions, this.instance.options, );
-        console.log("THIS:_OPTIONS", this._options);
+        // Merge default options, overwrite with any passed in options
+        this._options = merge({}, DefaultOptions, options);
 
-        // Disable native image resize in firefox:
+        this.listeners = {
+            onRootClick: this.onRootClick(),
+            onKeyUp: this.onKeyUp()
+        };
+
+        // Disable native image resize in firefox
         document.execCommand('enableObjectResizing', false, 'false');
 
-        this.instance.root.addEventListener('click', this.handleClick(), false);
+        this.instance.root.addEventListener('click', this.listeners.onRootClick, false);
         this.instance.root.parentElement.style.position = this.instance.root.parentElement.style.position || 'relative';
 
         this.modules = [];
     }
 
-    private initModules() {
+    /**
+     * Re-initialize all internal modules, to active them
+     *
+     * @private
+     *
+     * @memberof ImageResize
+     */
+    private initModules(): void {
+        let self = this;
         this.destroyModules();
-        console.log("MODULES", this._options.modules);
+
         if (this._options.modules)
             this.modules = this._options.modules.map(
-                function (mclass) {
-                    console.log("MCLASS", mclass);
-                    return new (knownModules[mclass] || mclass)(this);
+                function (mclass: string | KnownModule): void {
+                    return new (knownModules[<string>mclass] || mclass)(self);
                 }
             );
 
-        this.modules.forEach(function (module) {
+        this.modules.forEach(function (module: KnownModule): void {
             module.onCreate();
         });
         this.onUpdate();
     }
 
-    private destroyModules() {
-        this.modules.forEach(function (module) {
+    private destroyModules(): void {
+        this.modules.forEach(function (module: KnownModule): void {
             module.onDestroy();
         });
-        this.modules = []
+        this.modules = [];
     }
 
-    public handleClick(): (evt: Event) => void {
-        var self = this;
-        return function (event) {
-            console.log("EVENT", event, "this", this);
+    /**
+     * Event Handler to run when an element is clicked inside the Quill editor
+     * Checks if the selected element is an image, and creates an overlay of the selected element
+     *
+     * @private
+     * @returns {(evt: Event) => void}
+     *
+     * @memberof ImageResize
+     */
+    private onRootClick(): (evt: Event) => void {
+        let self = this;
 
+        return function (event: Event): void {
             if (event.target && event.target['tagName'] && event.target['tagName'].toUpperCase() === 'IMG') {
-                console.log('image clicked');
-                if (self.currentSelectedImage == event.target)
+
+                if (self.currentSelectedImage === event.target)
                     return; // Focuse is already up and running
                 else if (self.currentSelectedImage)
                     self.hideSelection();
@@ -172,18 +128,26 @@ export class ImageResize {
             }
             else if (self.currentSelectedImage)
                 self.hideSelection();
-        }
+        };
     }
 
-    private hideSelection() {
+    /**
+     * Hide the active overlay of active image
+     *
+     * @private
+     * @returns
+     *
+     * @memberof ImageResize
+     */
+    private hideSelection(): void {
         if (!this.currentSelectedImage)
             return;
 
         this.instance.root.parentNode.removeChild(this.currentOverlay);
         this.currentOverlay = null;
 
-        document.removeEventListener('keyup', this.activeKeyListener);
-        this.instance.root.removeEventListener('input', this.activeKeyListener);
+        document.removeEventListener('keyup', this.listeners.onKeyUp);
+        this.instance.root.removeEventListener('input', this.listeners.onKeyUp);
 
         this.userSelectValue = '';
 
@@ -191,7 +155,15 @@ export class ImageResize {
         this.currentSelectedImage = null;
     }
 
-    private showSelection(element: HTMLElement) {
+    /**
+     * SHow the overlay of the image clicked
+     *
+     * @private
+     * @param {HTMLElement} element
+     *
+     * @memberof ImageResize
+     */
+    private showSelection(element: HTMLElement): void {
         this.currentSelectedImage = element;
 
         if (this.currentOverlay)
@@ -200,8 +172,8 @@ export class ImageResize {
         this.instance.setSelection(null);
         this.userSelectValue = 'none';
 
-        document.addEventListener('keyup', this.activeKeyListener, true);
-        this.instance.root.addEventListener('input', this.activeKeyListener, true);
+        document.addEventListener('keyup', this.listeners.onKeyUp, true);
+        this.instance.root.addEventListener('input', this.listeners.onKeyUp, true);
 
         this.createOverlayElement();
         this.instance.root.parentNode.appendChild(this.currentOverlay);
@@ -212,16 +184,20 @@ export class ImageResize {
 
     private createOverlayElement(): HTMLElement {
         this.currentOverlay = document.createElement('div');
-
-        var self = this;
-        Object.keys(this._options.overlayStyles).forEach(function (key) {
-            self.currentOverlay.style[key] = self._options.overlayStyles[key];
-        });
+        assign(this.currentOverlay.style, this._options.overlayStyles);
 
         return this.currentOverlay;
     }
 
-    private reposition() {
+    /**
+     * Repositions the overlay, to follow the bound of the selected image
+     *
+     * @private
+     * @returns
+     *
+     * @memberof ImageResize
+     */
+    private reposition(): void {
         if (!this.currentOverlay || !this.currentSelectedImage)
             return;
 
@@ -234,41 +210,63 @@ export class ImageResize {
             top: `${imgRect.top - containerRect.top + parent.scrollTop}px`,
             width: `${imgRect.width}px`,
             height: `${imgRect.height}px`,
-        }
+        };
+
+        assign(this.currentOverlay.style, repositionData);
     }
 
-    public onUpdate() {
+    /**
+     * Updates each internal module
+     *
+     * @memberof ImageResize
+     */
+    public onUpdate(): void {
         this.reposition();
 
-        this.modules.forEach(function (module) {
+        this.modules.forEach(function (module: KnownModule): void {
             module.onUpdate();
         });
     }
 
     private set userSelectValue(value: string) {
-        var self = this;
-        ['userSelect', 'mozUserSelect', 'webkitUserSelect', 'msUserSelect'].forEach(function (key) {
+        let self = this;
+        ['userSelect', 'mozUserSelect', 'webkitUserSelect', 'msUserSelect'].forEach(function (key: string): void {
             self.instance.root.style[key] = value;
             document.documentElement.style[key] = value;
         });
     }
 
-    private activeKeyListener(event: KeyboardEvent) {
-        if (this.currentSelectedImage) {
-            if (event.keyCode == 46 || event.keyCode == 8)
-                (<any>Quill).find(this.currentSelectedImage).deleteAt(0);
-        }
+    /**
+     * Key Handler, for removing an image when DELETE or BACKSPACE is pressed
+     *
+     * @private
+     * @returns {(event: KeyboardEvent) => void}
+     *
+     * @memberof ImageResize
+     */
+    private onKeyUp(): (event: KeyboardEvent) => void {
+        let self = this;
+        const KEYCODE_BACKSPACE = 8;
+        const KEYCODE_DELETE = 46;
+
+        return function (event: KeyboardEvent): void {
+            if (self.currentSelectedImage) {
+                if (event.keyCode === KEYCODE_DELETE || event.keyCode === KEYCODE_BACKSPACE)
+                    (<any>Quill).find(self.currentSelectedImage).deleteAt(0);
+            }
+
+        };
     }
 
-    public get overlay() {
+    public get overlay(): HTMLElement {
         return this.currentOverlay;
     }
 
-    public get image() {
+    public get image(): Element | EventTarget {
         return this.currentSelectedImage;
     }
 
-    public get options() {
+    public get options(): IDefaultOptions {
         return this._options;
     }
 }

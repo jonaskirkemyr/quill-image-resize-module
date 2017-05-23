@@ -1,12 +1,20 @@
+import { assign } from 'lodash';
 import { ImageResize } from '../ImageResize';
 import { BaseModule } from './BaseModule';
 
 interface IResizeListeners {
-    onMouseDown: (event: MouseEvent) => void,
-    onMouseDrag: (event: MouseEvent) => void,
-    onMouseRelease: (event: MouseEvent) => void
+    onMouseDown: (event: MouseEvent) => void;
+    onMouseDrag: (event: MouseEvent) => void;
+    onMouseRelease: (event: MouseEvent) => void;
 }
 
+/**
+ * Enables resize of image by dragging the corners of an image
+ *
+ * @export
+ * @class Resize
+ * @extends {BaseModule}
+ */
 export class Resize extends BaseModule {
 
     private boxes: HTMLElement[];
@@ -27,9 +35,10 @@ export class Resize extends BaseModule {
         };
     }
 
-    private onMouseDown() {
+    private onMouseDown(): (event: MouseEvent) => void {
         let self = this;
-        return function (event: MouseEvent) {
+
+        return function (event: MouseEvent): void {
             // Create the box for resizing
             self.resizeBox = <HTMLElement>event.target;
             self.clickPosition = event.clientX;
@@ -39,12 +48,13 @@ export class Resize extends BaseModule {
 
             document.addEventListener('mousemove', self.listeners.onMouseDrag);
             document.addEventListener('mouseup', self.listeners.onMouseRelease);
-        }
+        };
     }
 
-    private onMouseDrag() {
+    private onMouseDrag(): (event: MouseEvent) => void {
         let self = this;
-        return function (event: MouseEvent) {
+
+        return function (event: MouseEvent): void {
             if (!self.img)
                 return;
 
@@ -56,26 +66,25 @@ export class Resize extends BaseModule {
             else // Right-size resize handler - enlare image
                 self.img.width = Math.round(self.originalWidth + deltaX);
 
-            self.requestUpdate();
-        }
+            self.imageResize.onUpdate();
+        };
     }
 
-    private onMouseRelease() {
+    private onMouseRelease(): (event: MouseEvent) => void {
         let self = this;
-        return function (event: MouseEvent) {
+
+        return function (event: MouseEvent): void {
             self.setCursorStyle('');
             document.removeEventListener('mousemove', self.listeners.onMouseDrag);
             document.removeEventListener('mouseup', self.listeners.onMouseRelease);
-        }
+        };
     }
 
     private createBox(cursorType: 'nwse-resize' | 'nesw-resize' | 'nwse-resize' | 'nesw-resize'): HTMLElement {
         let box = document.createElement('div');
 
-        var self = this;
-        Object.keys(this.options.handleStyles).forEach(function (key) {
-            box.style[key] = self.options.handleStyles[key];
-        });
+        let self = this;
+        assign(box.style, this.options.handleStyles);
 
         box.style.cursor = cursorType;
         box.style.width = this.options.handleStyles.width + 'px';
@@ -87,7 +96,7 @@ export class Resize extends BaseModule {
         return box;
     }
 
-    private positionBoxes() {
+    private positionBoxes(): void {
         let xOffset = (-parseFloat(this.options.handleStyles.width) / 2) + 'px';
         let yOffset = (-parseFloat(this.options.handleStyles.height) / 2) + 'px';
 
@@ -106,7 +115,7 @@ export class Resize extends BaseModule {
 
 
 
-    public onCreate() {
+    public onCreate(): void {
         this.boxes = [
             this.createBox('nwse-resize'), // Top Left
             this.createBox('nesw-resize'), // Top right
@@ -117,15 +126,15 @@ export class Resize extends BaseModule {
         this.positionBoxes();
     }
 
-    public onDestroy() {
+    public onDestroy(): void {
         this.setCursorStyle('');
     }
 
-    public onUpdate() {
+    public onUpdate(): void {
 
     }
 
-    private setCursorStyle(cursorStyle: string) {
+    private setCursorStyle(cursorStyle: string): void {
         document.body.style.cursor = cursorStyle;
         this.img.style.cursor = cursorStyle;
     }

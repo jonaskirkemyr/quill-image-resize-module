@@ -1,25 +1,30 @@
+import { assign } from 'lodash';
 import { BaseModule } from './BaseModule';
 
+/**
+ * Display the pixel width&height of an image
+ *
+ * @export
+ * @class DisplaySize
+ * @extends {BaseModule}
+ */
 export class DisplaySize extends BaseModule {
 
     private display: HTMLElement;
 
-    public onCreate() {
+    public onCreate(): void {
         this.display = document.createElement('div');
 
-        var self = this;
-        Object.keys(this.options.displayStyles).forEach(function (key) {
-            self.display.style[key] = self.options.displayStyles[key];
-        });
+        assign(this.display.style, this.options.displayStyles);
 
         this.overlay.appendChild(this.display);
     }
 
-    public onDestroy() {
+    public onDestroy(): void {
 
     }
 
-    public onUpdate() {
+    public onUpdate(): void {
         if (!this.display || !this.img)
             return;
 
@@ -32,7 +37,7 @@ export class DisplaySize extends BaseModule {
             this.display.style.bottom = '4px';
             this.display.style.left = 'auto';
         }
-        else if (this.img.style['float'] == 'right') {
+        else if (this.img.style['float'] === 'right') {
             // Position - bottom left
             const bounds = this.display.getBoundingClientRect();
             this.display.style.right = 'auto';
@@ -46,7 +51,6 @@ export class DisplaySize extends BaseModule {
             this.display.style.bottom = (bounds.height + 4) + 'px';
             this.display.style.left = 'auto';
         }
-
     }
 
     private getCurrentSize(): number[] {

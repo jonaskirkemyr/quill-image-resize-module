@@ -1,4 +1,16 @@
-export default {
+export interface IDefaultOptions {
+    modules?: { [key: string]: any };
+
+    // CSSStyleDeclaration objects
+    overlayStyles?: {};
+    handleStyles?: {} | any;
+    displayStyles?: {};
+    toolbarStyles?: {};
+    toolbarButtonStyles?: {};
+    toolbarButtonSvgStyles?: {};
+}
+
+export const DefaultOptions: IDefaultOptions = {
     modules: [
         'DisplaySize',
         'Toolbar',
@@ -55,5 +67,5 @@ export default {
         fill: '#444',
         stroke: '#444',
         strokeWidth: '2',
-    },
+    }
 };
