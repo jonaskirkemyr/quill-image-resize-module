@@ -1,4 +1,7 @@
 # Changelog
+## v3.0.1 - May 23, 2016
+
+- Rewrite to Typescript
 
 ## v3.0.0 - April 9, 2017
 

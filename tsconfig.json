@@ -5,6 +5,7 @@
 		"outDir": "dist/"
 	},
 	"files": [
-		"src/ImageResize.ts"
+		"src/ImageResize.ts",
+		"customTypes.d.ts"
 	]
 }
