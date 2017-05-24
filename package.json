@@ -3,6 +3,7 @@
     "version": "3.0.1",
     "description": "A module for Quill rich text editor to allow images to be resized.",
     "main": "dist/ImageResize.js",
+    "types": "dist/ImageResize.d.ts",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "release": "npm run lint && npm run build:ts",
