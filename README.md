@@ -30,6 +30,25 @@ const quill = new Quill(editor, {
 });
 ```
 
+### TypeScript
+
+```ts
+import * as Quill from 'quill';
+import { ImageResize } from 'quill-image-resize-module';
+
+Quill.register('modules/imageResize', ImageResize);
+
+const quill = new Quill(editor, {
+    // ...
+    modules: {
+        // ...
+        imageResize: {
+            // See optional "config" below
+        }
+    }
+});
+```
+
 ### Script Tag
 
 Copy image-resize.min.js into your web root or include from node_modules
